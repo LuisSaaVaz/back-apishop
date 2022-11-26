@@ -1,0 +1,47 @@
+{
+  "name": "api_shop",
+  "version": "1.0.0",
+  "description": "TÍTULO",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "nodemon index.js",
+    "dbFull": " node app/db/initDBFull.js",
+    "dbEmpty": " node app/db/initDBEmpty.js"
+    
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/KT1G/API_SHOP.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/KT1G/API_SHOP/issues"
+  },
+  "homepage": "https://github.com/KT1G/API_SHOP#readme",
+  "dependencies": {
+    "@joi/date": "^2.1.0",
+    "bcrypt": "^5.0.1",
+    "chance": "^1.1.8",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.1",
+    "express": "^4.18.1",
+    "joi": "^17.6.0",
+    "jsonwebtoken": "^8.5.1",
+    "mailgun-js": "^0.22.0",
+    "multer": "^1.4.5-lts.1",
+    "mysql2": "^2.3.3",
+    "prettier": "^2.7.1",
+    "sharp": "^0.30.7",
+    "uuid": "^8.3.2"
+  },
+  "devDependencies": {
+    "eslint": "^8.21.0",
+    "nodemon": "^2.0.19"
+  }
+}
