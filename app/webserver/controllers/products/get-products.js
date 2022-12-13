@@ -471,7 +471,127 @@ const getProductBySearch = async (req, res, next) => {
     searchQuery = `p.name LIKE '%${search}%' OR category LIKE '%${search}%' OR location LIKE '%${search}%' OR caption LIKE '%${search}%'`
   }
 
-  // const searchQuery = `p.name LIKE '%${search}%' OR category LIKE '%${search}%' OR location LIKE '%${search}%' OR caption LIKE '%${search}%'`
+  req.claims = { ...req.query }
+  const data = { ...req.claims }
+
+  //PARA LA PAGINACION
+  const page = parseInt(req.query.page, 10) || 1 //Pagina recibida por querystring o por defecto 1
+  const offset = (page - 1) * MAX_PRODUCTS_PER_PAGE //Registros que se saltaran
+
+  //VALIDACIONES
+  try {
+    await validateProducts({ ...data, search })
+    console.log('Datos validados')
+  } catch (error) {
+    res.status(400).send({
+      status: 'Bad Request',
+      message: error.details[0].message,
+    })
+  }
+
+  //OBTENER LOS ELEMENTOS DE LA BASE DE DATOS
+  try {
+    connection = await getConnection()
+    let conditions = []
+    let queryStrings = []
+    let query = `SELECT p.id, p.category, p.status, p.name, p.price, p.location, p.image, p.caption, p.likes, p.user_id, u.name AS user_name, u.score AS user_score FROM products p LEFT JOIN users u ON p.user_id= u.id WHERE p.status IS NULL`
+
+    //Meter en query, conditions y queryStrings los elementos del objeto que devuelve la funcion createProductFilter
+    const result = await createProductFilter(
+      data,
+      query,
+      queryStrings,
+      conditions
+    )
+    //query = result.query
+    queryStrings = result.queryStrings
+    conditions = result.conditions
+
+    let totalProducts = null
+    //Cojo el total de productos que hay en la base de datos
+    if (conditions.length > 0) {
+      ;[totalProducts] = await connection.query(
+        `SELECT COUNT(*) AS total FROM products p WHERE p.status IS NULL AND ${conditions.join(
+          ' AND '
+        )} AND (${searchQuery})`
+      )
+      totalProducts = totalProducts[0].total
+      query = ` ${query} AND ${conditions.join(' AND ')} AND (${searchQuery})`
+    } else {
+      ;[totalProducts] = await connection.query(
+        `SELECT COUNT(*) AS total FROM products p WHERE p.status IS NULL AND (${searchQuery})`
+      )
+      totalProducts = totalProducts[0].total
+      query = ` ${query} AND (${searchQuery})`
+    }
+
+    //Cojo el total de paginas que hay en la base de datos
+    const totalPages = Math.ceil(totalProducts / MAX_PRODUCTS_PER_PAGE) //Redondeo para arriba
+
+    //Cojo todos los products resultantes de la consulta
+    const [products] = await connection.query(
+      `${query}  ORDER BY p.id DESC LIMIT ${MAX_PRODUCTS_PER_PAGE} OFFSET ${offset}`
+    )
+    console.log(products.length)
+    //si no existen productos o la pagina devuelve un error
+    if (products.length === 0) {
+      throw generateError(`No hay productos`, 404)
+    } else if (page > totalPages) {
+      throw generateError(
+        `No exite la pagina ${page}, van del 1 al ${totalPages}`,
+        404
+      )
+    } else {
+      const urlBase = `http://${req.headers.host}/api/products/filterBy/search/${search}`
+      return res
+        .status(200)
+        .send(
+          await pagination(
+            urlBase,
+            page,
+            totalPages,
+            totalProducts,
+            offset,
+            products,
+            queryStrings
+          )
+        )
+    }
+  } catch (error) {
+    next(error)
+  } finally {
+    if (connection) {
+      connection.release() //Liberamos la conexion
+    }
+  }
+}
+/***************************************************************
+ *********************BY SEARCH OPTION**************************
+ **************************************************************/
+
+const getProductBySearchOption = async (req, res, next) => {
+  let connection = null
+
+  //DATOS DE LA PETICION
+  const search = `${req.params.search}`
+  const option = `${req.params.option}`
+  let searchQuery = null
+  let searchQueryArray = null
+  let searchOption = null
+
+  //si search contiene espacios separo por espacios y lo guardo en el searchQueryArray
+  if (search.includes(' ')) {
+    searchQueryArray = search.split(' ')
+    //searchName es un string uniendo p.name Like '%${elemento del array}%' con ' OR '
+    searchOption = searchQueryArray.map((element) => {
+      return `p.${option} LIKE '%${element}%'`
+    })
+    const searchOptionString = searchOption.join(' OR ')
+    searchQuery = `(${searchOptionString})`
+  } else {
+    searchQuery = `p.${option} LIKE '%${search}%'`
+  }
+
   req.claims = { ...req.query }
   const data = { ...req.claims }
 
@@ -1110,6 +1230,7 @@ module.exports = {
   getProductBySuggestion,
   getProductById,
   getProductBySearch,
+  getProductBySearchOption,
   getTotalsBySearch,
   getProductByCategory,
   getProductByLocation,
